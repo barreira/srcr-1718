@@ -88,3 +88,27 @@ teste([H | T]) :- H, teste(T).
 solucoes(F,Q,S) :- findall(F,Q,S).
 
 comprimento(S,N) :- length(S,N).
+
+utente( 0, 'Jose',      45, 'Rua do Queijo').
+utente( 1, 'Maria',     41, 'Rua de Cima').
+utente( 2, 'Gertrudes', 26, 'Rua Carlos Antonio').
+utente( 3, 'Paula',     73, 'Rua da Mina').
+utente( 4, 'Sebastiao', 83, 'Rua da Poeira').
+utente( 5, 'Zeca',      9,  'Rua do Pao').
+utente( 6, 'Jorge',     44, 'Rua da Estrada').
+utente( 7, 'Rafaela',   23, 'Rua da Vila').
+utente( 8, 'Anabela',   42, 'Rua de Baixo').
+utente( 9, 'Antonio',   57, 'Rua do Forno').
+utente(10, 'Zueiro',    33, 'Rua do Mar').
+
+prestador( 0, 'Manuel',   'Cardiologia',  'Hospital de Braga').
+prestador( 1, 'Carlos',   'Neurologia',   'Hospital de Guimaraes').
+prestador( 2, 'Aventino', 'Urologia',     'Hospital de Guimaraes').
+prestador( 3, 'Paulo',    'Ortopedia',    'Hospital de Braga').
+prestador( 4, 'Bicas',    'Psiquiatria',  'Hospital de Guimaraes').
+prestador( 5, 'Ines',     'Pediatria',    'Hospital de Guimaraes').
+prestador( 6, 'Manuela',  'Ginecologia',  'Hospital de Braga').
+prestador( 7, 'Sara',     'Oftalmologia', 'Hospital de Guimaraes').
+prestador( 8, 'Sandra',   'Radiografia',  'Hospital de Braga').
+prestador( 9, 'Ruben',    'Fisioterapia', 'Hospital de Guimaraes').
+prestador(10, 'Luisa',    'Dermatologia', 'Hospital de Braga').
