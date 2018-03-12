@@ -40,15 +40,15 @@
 ).
 
 
-+prestador(Id, _, _, _) :: (
++prestador(Id, _, _, _, _) :: (
 	integer(Id),
-    solucoes(Id, prestador(Id, _, _, _), S),
+    solucoes(Id, prestador(Id, _, _, _, _), S),
     comprimento(S, N),
     N == 1    
 ).
 
 
--prestador(IdPrest, _, _, _) :: (
+-prestador(IdPrest, _, _, _, _) :: (
 	solucoes(IdUt, cuidado(_, _, IdPrest, _, _), S),
 	comprimento(S, N),
 	N == 0
@@ -58,7 +58,7 @@
 +cuidado(Data, IdUt, IdPrest, Descr, Custo) :: (
 	number(Custo), Custo >= 0,
     solucoes(IdUt, utente(IdUt, _, _, _), S1),
-    solucoes(IdPrest, prestador(IdPrest, _, _, _), S2),
+    solucoes(IdPrest, prestador(IdPrest, _, _, _, _), S2),
     solucoes((Data, IdUt, IdPrest, Descricao, Custo),
              cuidado(Data, IdUt, IdPrest, Descricao, Custo),
              S3),
@@ -84,20 +84,57 @@
 procura_utentes(Id, N, Idade, M, L) :-
 	solucoes((Id, N, Idade, M), utente(Id, N, Idade, M), L).
 
+procura_utentes(IdPres, Esp, Ins, L) :-
+    solucoes((IdU, Nome, Idade, Morada), 
+             (prestador(IdPres, _, Esp, Inst, _),
+              cuidado(_, IdU, IdPres, _, _), 
+              utente(IdU, Nome, Idade, Morada)),
+             L).
+
 	
 instituicoes(L) :-
-	solucoes((Id, N, A, Ins), prestador(Id, N, A, Ins), S),
-	lista_instituicoes(S, [], L).
-	
-	
-lista_instituicoes([], R, R).
-lista_instituicoes([(_, _, _, I) | T], R, L) :-
-	pertence(I, R),
-	lista_instituicoes(T, R, L).
-lista_instituicoes([(_, _, _, I) | T], R, L) :-
-	nao(pertence(I, R)),
-	lista_instituicoes(T, [I | R], L).
-	
+    solucoes(Inst, 
+             (prestador(_, _, _, Inst, _)),
+             S),
+    sem_repetidos(S, L).
+
+
+procura_cuidados_por_dic(Data, Inst, Cidade, L) :-
+    solucoes((Data, IdU, IdPres, Desc, Custo, Cidade), 
+             (prestador(IdPres, _, _, Inst, Cidade),
+              cuidado(Data, IdU, IdPres, Desc, Custo)), 
+             L).
+
+procura_cuidados_por_upi(IdU, IdPres, Inst, L) :-
+    solucoes((Data, IdU, IdPres, Desc, Custo, Cidade), 
+             (prestador(IdPres, _, _, Inst, Cidade),
+              cuidado(Data, IdU, IdPres, Desc, Custo)), 
+             L).
+
+
+prestadores_de_utente(IdU, L) :-
+    solucoes((IdPres, Nome, Esp, Inst, Cidade), 
+             (prestador(IdPres, Nome, Esp, Inst, Cidade),
+              cuidado(_, IdU, IdPres, _, _)), 
+             L).
+
+
+instituicoes_de_utente(IdU, L) :-
+    solucoes(Inst,
+             (prestador(IdPres, _, _, Inst, _),
+              cuidado(_, IdU, IdPres, _, _)), 
+             R),
+    sem_repetidos(R, L).
+
+
+custo_total(IdU, IdP, Esp, Data, C) :-
+    solucoes(Custo,
+             (prestador(IdP, _, Esp, _, _),
+              cuidado(Data, IdU, IdP, _, Custo)), 
+             R),
+    sum(R, C).
+
+
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Predicados auxiliares
@@ -138,6 +175,39 @@ pertence(X, [X | T]).
 pertence(X, [H | T]) :- X \= H, pertence(X, T).
 
 
+sem_repetidos([],[]).
+sem_repetidos([H|T], R) :-
+	pertence(H,T),
+	sem_repetidos(T,R).
+sem_repetidos([H|T], [H|R]) :-
+	nao(pertence(H,T)),
+	sem_repetidos(T,R).
+
+sum([], 0).
+sum([H|T], R) :- sum(T, L), R is H + L.
+
+data(D, M, A) :-
+	A >= 0,
+    pertence(M, [1,3,5,7,8,10,12]),
+	D >= 1,
+	D =< 31.
+data(D, M, A) :-
+	A >= 0,
+    pertence(M, [4,6,9,11]),
+	D >= 1,
+	D =< 30.
+data(D, 2, A) :-
+	A >= 0,
+    A mod 4 =\= 0, % ano nao bissexto
+	D >= 1,
+	D =< 28.
+data(D, 2, A) :-
+    A >= 0,
+	A mod 4 =:= 0,
+	D >= 1,
+	D =< 29.
+
+
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Factos
 
@@ -153,17 +223,17 @@ utente( 8, 'Anabela',   42, 'Rua de Baixo').
 utente( 9, 'Antonio',   57, 'Rua do Forno').
 utente(10, 'Zueiro',    33, 'Rua do Mar').
 
-prestador( 0, 'Manuel',   'Cardiologia',  'Hospital de Braga').
-prestador( 1, 'Carlos',   'Neurologia',   'Hospital de Guimaraes').
-prestador( 2, 'Aventino', 'Urologia',     'Hospital de Guimaraes').
-prestador( 3, 'Paulo',    'Ortopedia',    'Hospital de Braga').
-prestador( 4, 'Bicas',    'Psiquiatria',  'Hospital de Guimaraes').
-prestador( 5, 'Ines',     'Pediatria',    'Hospital de Guimaraes').
-prestador( 6, 'Manuela',  'Ginecologia',  'Hospital de Braga').
-prestador( 7, 'Sara',     'Oftalmologia', 'Hospital de Guimaraes').
-prestador( 8, 'Sandra',   'Radiografia',  'Hospital de Braga').
-prestador( 9, 'Ruben',    'Fisioterapia', 'Hospital de Guimaraes').
-prestador(10, 'Luisa',    'Dermatologia', 'Hospital de Braga').
+prestador( 0, 'Manuel',   'Cardiologia',  'Hospital de Braga', 'Braga').
+prestador( 1, 'Carlos',   'Neurologia',   'Hospital de Guimaraes', 'Guimaraes').
+prestador( 2, 'Aventino', 'Urologia',     'Hospital de Guimaraes', 'Guimaraes').
+prestador( 3, 'Paulo',    'Ortopedia',    'Hospital de Braga', 'Braga').
+prestador( 4, 'Bicas',    'Psiquiatria',  'Hospital de Guimaraes', 'Guimaraes').
+prestador( 5, 'Ines',     'Pediatria',    'Hospital de Guimaraes', 'Guimaraes').
+prestador( 6, 'Manuela',  'Ginecologia',  'Hospital de Braga', 'Braga').
+prestador( 7, 'Sara',     'Oftalmologia', 'Hospital de Guimaraes', 'Guimaraes').
+prestador( 8, 'Sandra',   'Radiografia',  'Hospital de Braga', 'Braga').
+prestador( 9, 'Ruben',    'Fisioterapia', 'Hospital de Guimaraes', 'Guimaraes').
+prestador(10, 'Luisa',    'Dermatologia', 'Hospital de Braga', 'Braga').
 
 cuidado('13-12-2017', 0, 2, 'Consulta Urologia', 19.99).
 cuidado('13-11-2017', 0, 1, 'Consulta Neurologia', 39.99).
