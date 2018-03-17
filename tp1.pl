@@ -89,7 +89,7 @@
 % O custo deve ser do tipo number e ser maior ou igual a zero
 
 +cuidado(Data, IdUt, IdPrest, Descr, Custo) :: (
-	number(Custo), Custo >= 0, Data,
+	number(Custo), Custo >= 0, data(Data),
     solucoes(IdUt, utente(IdUt, _, _, _), S1),
     solucoes(IdPrest, prestador(IdPrest, _, _, _), S2),
     solucoes((Data, IdUt, IdPrest, Descricao, Custo),
@@ -140,7 +140,7 @@
 % marcadas com um prestador
 
 +consulta(IdU, IdP, HI, HF) :: (
-	HI, HF,
+	data_hora(HI), data_hora(HF),
 	solucoes(IdU, utente(IdU, _, _, _), S1),
 	solucoes(IdP, prestador(IdP, _, _, _), S2),
 	solucoes((IdU, IdP, HI, HF), consulta(IdU, IdP, HI, HF), S3),
@@ -365,6 +365,7 @@ data(D, 2, A) :-
 	A mod 4 =:= 0,
 	D >= 1,
 	D =< 29.
+data(data(D, M, A)) :- data(D, M, A).
 
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
@@ -376,6 +377,7 @@ data_hora(D, M, A, H, Min) :-
 	H =< 23,
 	Min >= 0,
 	Min =< 59.
+data_hora(data_hora(D, M, A, H, Min)) :- data_hora(D, M, A, H, Min).
 		
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
