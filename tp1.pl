@@ -259,6 +259,15 @@ procura_consultas(IdU, IdP, HI, HF, L) :-
 	
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado procura_consultas: IdU, IdP, HI, HF, Lista -> {V, F}
+% Procura consultas por uma dada data
+
+procura_consultas(data(D, M, A), L) :-
+	solucoes((IdU, IdP, data_hora(D, M, A, H1, M1), data_hora(D, M, A, H2, M2)),
+		consulta(IdU, IdP, data_hora(D, M, A, H1, M1), data_hora(D, M, A, H2, M2)),
+		L).
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado nao: Termo -> {V, F}	
 
 nao(T) :- T, !, fail.
