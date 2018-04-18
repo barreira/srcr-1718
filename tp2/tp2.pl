@@ -25,16 +25,99 @@
 :- dynamic cuidado/5.
 :- dynamic instituicao/3.
 :- dynamic consulta/4.
+:- dynamic excecao/1.
+:- dynamic impreciso/1.
+:- dynamic imprecisoIntervalo/1.
+:- dynamic incerto/1.
 
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % PREDICADOS AUXILIARES
 
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado demo: Questao, Flag -> {V, F, D}
 
 demo(Questao, verdadeiro) :- Questao.
 demo(Questao, falso) :- -Questao.
 demo(Questao, desconhecido) :- nao(Questao), nao(-Questao).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado demo: Questao1, Tipo, Questao2, Flag -> {V, F, D}
+% em que Tipo pode ser:
+%	eq - equivalencia
+% 	impl - implicacao
+%   ou - disjuncao
+%   e - conjuncao
+
+demo(Q1, eq, Q2, F) :- demo(Q1, F1), 
+	                   demo(Q2, F2), 
+	                   equivalencia(F1, F2, F).
+demo(Q1, impl, Q2, F) :- demo(Q1, F1), 
+	                     demo(Q2, F2), 
+	                     implicacao(F1, F2, F).
+demo(Q1, ou, Q2, F) :- demo(Q1, F1), 
+	                   demo(Q2, F2), 
+	                   disjuncao(F1, F2, F).
+demo(Q1, e, Q2, F) :- demo(Q1, F1), 
+	                  demo(Q2, F2), 
+	                  conjuncao(F1, F2, F).					   
+				
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado equivalencia: Tipo, Tipo, Tipo -> {V, F, D}
+% Tipo pode ser verdadeiro, falso ou desconhecido
+
+equivalencia(X, X, verdadeiro).
+equivalencia(desconhecido, Y, desconhecido).
+equivalencia(X, desconhecido, desconhecido).
+equivalencia(X, Y, falso) :- X \= Y.
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado implicacao: Tipo, Tipo, Tipo -> {V, F, D}
+% Tipo pode ser verdadeiro, falso ou desconhecido
+
+implicacao(falso, X, verdadeiro).
+implicacao(X, verdadeiro, verdadeiro).
+implicacao(verdadeiro, desconhecido, desconhecido). 
+implicacao(desconhecido, X, desconhecido) :- X \= verdadeiro.
+implicacao(verdadeiro, falso, falso).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado disjuncao: Tipo, Tipo, Tipo -> {V, F, D}
+% Tipo pode ser verdadeiro, falso ou desconhecido
+
+disjuncao(verdadeiro, X, verdadeiro).
+disjuncao(X, verdadeiro, verdadeiro).
+disjuncao(desconhecido, Y, desconhecido) :- Y \= verdadeiro.
+disjuncao(Y, desconhecido, desconhecido) :- Y \= verdadeiro.
+disjuncao(falso, falso, falso).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado conjuncao: Tipo, Tipo, Tipo -> {V, F, D}
+% Tipo pode ser verdadeiro, falso ou desconhecido
+
+conjuncao(verdadeiro, verdadeiro, verdadeiro).
+conjuncao(falso, _, falso).
+conjuncao(_, falso, falso).
+conjuncao(desconhecido, verdadeiro, desconhecido).
+conjuncao(verdadeiro, desconhecido, desconhecido).
+				
+				
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado demoList: Lista de Questoes, Lista de Respostas -> {V, F, D}
+% Determina o tipo de um conjunto de questoes
+% O resultado é uma lista de tipos (verdadeiro, falso ou desconhecido)
+				
+demoList([], []).
+demoList([X|L], [R|S]) :- demo(X, R),
+                          demoList(L, S). 
+
+						  
+						  
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado nao: Termo -> {V, F}	
@@ -43,39 +126,335 @@ nao(T) :- T, !, fail.
 nao(T).
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado evolucao: -Termo -> {V, F}
+% -Termo representa a negacao forte de um Termo	
+
+evolucao(-Termo) :- nao(impreciso(Termo)),
+					solucoes(Inv, +(-Termo)::Inv, S),
+					teste(S),
+                    assert(-Termo).
+					
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado evolucao: -Termo -> {V, F}	
+					
+evolucao(-Termo) :- impreciso(Termo),
+					removeImpreciso(Termo, L),
+					comprimento(L, N),
+					N > 1,
+					solucoes(Inv, +(-Termo)::Inv, S),
+					teste(S),
+                    assert(-Termo).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado evolucao: -Termo -> {V, F}	
+
+evolucao(-Termo) :- impreciso(Termo),
+					removeImpreciso(Termo, [T|[]]),
+					removeImperfeito(Termo),
+                    assert(T).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado evolucao: Termo -> {V, F}	
 
-evolucao(Termo) :- solucoes(Inv, +Termo::Inv, S),
-                   insere(Termo),
-                   teste(S).
+evolucao(Termo) :- imperfeito(Termo),
+				   testeImperfeito(Termo),
+	               removeIncerto(Termo),
+	               solucoes(Inv, +Termo::Inv, S),
+	               teste(S),
+	               assert(Termo),
+				   removeImperfeito(Termo).
 
-evolucao(-Termo) :- solucoes(Inv, +(-Termo)::Inv, S),
-                    insere(-Termo),
-                    teste(S).
 
+evolucao(Termo) :- nao(imperfeito(Termo)),
+				   solucoes(Inv, +Termo::Inv, S),
+                   teste(S),
+				   assert(Termo).
+					
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado involucao: Termo -> {V, F}		
 			   
 involucao(Termo) :- Termo,
 					solucoes(Inv, -Termo::Inv, S),
-                    remove(Termo),
-                    teste(S).
-
-				
+					teste(S),
+                    retract(Termo).
+					
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
-% Extensao do predicado insere: Termo -> {V, F}		
-			
-insere(Termo) :- assert(Termo).
-insere(Termo) :- retract(Termo), !, fail.
+% Extensao do predicado involucao: -Termo -> {V, F}
+% -Termo representa a negacao forte de um termo		
 
+involucao(-Termo) :- -Termo,
+					solucoes(Inv, -(-Termo::Inv), S),
+					teste(S),
+                    retract(-Termo).
+		
+					
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado testeImperfeito: Termo -> {V, F}
+% Verifica se um termo e imperfeito (valor desconhecido)		
+
+testeImperfeito(Termo) :- demo(Termo, desconhecido).
+					
+					
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imperfeito: Utente -> {V, F}
+% Verifica se o conhecimento relativo a um utente e imperfeito
+
+imperfeito(utente(Id, _, _, _)) :- incerto(utente(Id)).
+imperfeito(utente(Id, _, _, _)) :- impreciso(utente(Id)).
+imperfeito(utente(Id, _, _, _)) :- imprecisoIntervalo(utente(Id)).
+
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imperfeito: Prestador -> {V, F}
+% Verifica se o conhecimento relativo a um prestador e imperfeito
+	
+imperfeito(prestador(Id, _, _, _)) :- incerto(prestador(Id)).
+imperfeito(prestador(Id, _, _, _)) :- impreciso(prestador(Id)).
+imperfeito(prestador(Id, _, _, _)) :- imprecisoIntervalo(prestador(Id)).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imperfeito: Instituicao -> {V, F}
+% Verifica se o conhecimento relativo a uma instituicao e imperfeito
+
+imperfeito(instituicao(Id, _, _)) :- incerto(instituicao(Id)).
+imperfeito(instituicao(Id, _, _)) :- impreciso(instituicao(Id)).
+imperfeito(instituicao(Id, _, _)) :- imprecisoIntervalo(instituicao(Id)).
+
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imperfeito: Cuidado -> {V, F}
+% Verifica se o conhecimento relativo a um cuidado e imperfeito
+
+imperfeito(cuidado(D, U, P, _, _)) :- incerto(cuidado(D, U, P)).
+imperfeito(cuidado(D, U, P, _, _)) :- impreciso(cuidado(D, U, P)).
+imperfeito(cuidado(D, U, P, _, _)) :- imprecisoIntervalo(cuidado(D, U, P)).
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imperfeito: Consulta -> {V, F}
+
+% Verifica se o conhecimento relativo a uma consulta e imperfeito
+imperfeito(consulta(U, P, HI, _)) :- incerto(consulta(U, P, HI)).
+imperfeito(consulta(U, P, HI, _)) :- impreciso(consulta(U, P, HI)).
+imperfeito(consulta(U, P, HI, _)) :- imprecisoIntervalo(consulta(U, P, HI)).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado impreciso: Termo -> {V, F}
+% Verifica se o conhecimento relativo a um termo e impreciso
+
+impreciso(utente(Id, _, _, _)) :- impreciso(utente(Id)).
+impreciso(prestador(Id, _, _, _)) :- impreciso(prestador(Id)).
+impreciso(instituicao(Id, _, _)) :- impreciso(instituicao(Id)).
+impreciso(cuidado(D, U, P, _, _)) :- impreciso(cuidado(D, U, P)).
+impreciso(consulta(U, P, HI, _)) :- impreciso(consulta(U, P, HI)).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImpreciso: Utente -> {V, F}
+% Remove conhecimento impreciso relativamente a um utente
+
+removeImpreciso(utente(Id, Nome, Idade, Morada), L) :-
+	retract(excecao(utente(Id, Nome, Idade, Morada))),
+	solucoes((utente(Id, N, I, M)), excecao(utente(Id, N, I, M)), L).
+removeImpreciso(utente(Id, Nome, Idade, Morada), L) :-
+	solucoes((utente(Id, N, I, M)), excecao(utente(Id, N, I, M)), L).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImpreciso: Prestador -> {V, F}
+% Remove conhecimento impreciso relativamente a um prestador
+removeImpreciso(prestador(Id, Nome, Esp, Ins), L) :-
+	retract(excecao(prestador(Id, Nome, Esp, Ins))),
+	solucoes((prestador(Id, N, E, I)), excecao(prestador(Id, N, E, I)), L).
+removeImpreciso(prestador(Id, Nome, Esp, Ins), L) :-
+	solucoes((prestador(Id, N, E, I)), excecao(prestador(Id, N, E, I)), L).
+	
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
-% Extensao do predicado remove: Termo -> {V, F}	
+% Extensao do predicado removeImpreciso: Instituicao -> {V, F}
+% Remove conhecimento impreciso relativamente a uma instituicao
+removeImpreciso(instituicao(Id, Nome, Loc), L) :-
+	retract(excecao(instituicao(Id, Nome, Loc))),
+	solucoes((instituicao(Id, N, Lo)), excecao(instituicao(Id, N, Lo)), L).
+removeImpreciso(instituicao(Id, Nome, Loc), L) :-
+	solucoes((instituicao(Id, N, Lo)), excecao(instituicao(Id, N, Lo)), L).
+	
 
-remove(Termo) :- retract(Termo).
-remove(Termo) :- assert(Termo), !, fail.
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImpreciso: Cuidado -> {V, F}
+% Remove conhecimento impreciso relativamente a um cuidado
+removeImpreciso(cuidado(D, U, P, Desc, C), L) :-
+	retract(excecao(cuidado(D, U, P, Desc, C))),
+	solucoes((cuidado(D, U, P, Desc2, C2)), excecao(cuidado(D, U, P, Desc2, C2)), L).
+removeImpreciso(cuidado(D, U, P, Desc, C), L) :-
+	solucoes((cuidado(D, U, P, Desc2, C2)), excecao(cuidado(D, U, P, Desc2, C2)), L).
+	
 
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImpreciso: Consulta -> {V, F}
+% Remove conhecimento impreciso relativamente a uma consulta
+removeImpreciso(consulta(U, P, HI, HF), L) :-
+	retract(excecao(consulta(U, P, HI, HF))),
+	solucoes((consulta(U, P, HI, HF2)), excecao(consulta(U, P, HI, HF2)), L).
+removeImpreciso(consulta(U, P, HI, HF), L) :-
+	solucoes((consulta(U, P, HI, HF2)), excecao(consulta(U, P, HI, HF2)), L).
+
+	
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeIncerto: Utente -> {V, F}
+% Remove conhecimento incerto relativamente a um utente
+removeIncerto(utente(Id, Nome, Idade, Morada)) :-
+	incerto(utente(Id)),
+	retract(utente(Id, inc01, Idade, Morada)).
+removeIncerto(utente(Id, _, _, _)) :-
+	impreciso(utente(Id)).
+removeIncerto(utente(Id, _, _, _)) :-
+	imprecisoIntervalo(utente(Id)).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeIncerto: Prestador -> {V, F}
+% Remove conhecimento incerto relativamente a um prestador
+removeIncerto(prestador(Id, Nome, Esp, Ins)) :-
+	incerto(prestador(Id)),
+	retract(prestador(Id, Nome, Esp, inc01)).
+removeIncerto(prestador(Id, _, _, _)) :-
+	impreciso(prestador(Id)).
+removeIncerto(prestador(Id, _, _, _)) :-
+	imprecisoIntervalo(prestador(Id)).
+
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeIncerto: Instituicao -> {V, F}
+% Remove conhecimento incerto relativamente a uma instituicao
+removeIncerto(instituicao(Id, Nome, Localidade)) :-
+	incerto(instituicao(Id)),
+	retract(instituicao(Id, inc01, Localidade)).
+removeIncerto(instituicao(Id, _, _)) :-
+	impreciso(instituicao(Id)).
+removeIncerto(instituicao(Id, _, _)) :-
+	imprecisoIntervalo(instituicao(Id)).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeIncerto: Cuidado -> {V, F}
+% Remove conhecimento incerto relativamente a um cuidado
+removeIncerto(cuidado(Data, U, P, Desc, C)) :-
+	incerto(cuidado(Data, U, P)).
+removeIncerto(cuidado(Data, U, P, _, _)) :-
+	impreciso(cuidado(Data, U, P)).
+removeIncerto(cuidado(Data, U, P, _, _)) :-
+	imprecisoIntervalo(cuidado(Data, U, P)).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeIncerto: Consulta -> {V, F}
+% Remove conhecimento incerto relativamente a uma consulta
+removeIncerto(consulta(U, P, HI, HF)) :-
+	incerto(consulta(U, P, HI)),
+	retract(consulta(U, P, HI, inc01)).
+removeIncerto(consulta(U, P, HI, _)) :-
+	impreciso(consulta(U, P, HI)).
+removeIncerto(consulta(U, P, HI, _)) :-
+	imprecisoIntervalo(consulta(U, P, HI)).
+	
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImperfeito: Utente -> {V, F}
+% Remove conhecimento imperfeito relativamente a um utente
+removeImperfeito(utente(Id, _, _, _)) :-
+	incerto(utente(Id)),
+	retract(incerto(utente(Id))).
+removeImperfeito(utente(Id, _, _, _)) :-
+	imprecisoIntervalo(utente(Id)),
+	retract(imprecisoIntervalo(utente(Id))).
+removeImperfeito(utente(Id, Nome, Idade, Morada)) :-
+	impreciso(utente(Id)),
+	retract(excecao(utente(Id, Nome, Idade, Morada2))),
+	removeImperfeito(utente(Id, Nome, Idade, Morada)).
+removeImperfeito(utente(Id, _, _, _)) :-
+	impreciso(utente(Id)),
+	retract(impreciso(utente(Id))).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImperfeito: Prestador -> {V, F}
+% Remove conhecimento imperfeito relativamente a um prestador
+removeImperfeito(prestador(Id, _, _, _)) :-
+	incerto(prestador(Id)),
+	retract(incerto(prestador(Id))).
+removeImperfeito(prestador(Id, _, _, _)) :-
+	imprecisoIntervalo(prestador(Id)),
+	retract(imprecisoIntervalo(prestador(Id))).
+removeImperfeito(prestador(Id, Nome, Esp, Ins)) :-
+	impreciso(prestador(Id)),
+	retract(excecao(prestador(Id, Nome, Esp2, Ins))),
+	removeImperfeito(prestador(Id, Nome, Esp, Ins)).
+removeImperfeito(prestador(Id, _, _, _)) :-
+	impreciso(prestador(Id)),
+	retract(impreciso(prestador(Id))).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImperfeito: Instituicao -> {V, F}
+% Remove conhecimento imperfeito relativamente a uma instituicao
+removeImperfeito(instituicao(Id, _, _)) :-
+	incerto(instituicao(Id)),
+	retract(incerto(instituicao(Id))).
+removeImperfeito(instituicao(Id, _, _)) :-
+	imprecisoIntervalo(instituicao(Id)),
+	retract(imprecisoIntervalo(instituicao(Id))).
+removeImperfeito(instituicao(Id, Nome, Localidade)) :-
+	impreciso(instituicao(Id)),
+	retract(excecao(instituicao(Id, Nome, Loc))),
+	removeImperfeito(instituicao(Id, Nome, Localidade)).
+removeImperfeito(instituicao(Id, _, _)) :-
+	impreciso(instituicao(Id)),
+	retract(impreciso(instituicao(Id))).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImperfeito: Cuidado -> {V, F}
+% Remove conhecimento imperfeito relativamente a um cuidado
+removeImperfeito(cuidado(D, U, P, _, _)) :-
+	incerto(cuidado(D, U, P)),
+	retract(incerto(cuidado(D, U, P))).
+removeImperfeito(cuidado(D, U, P, _, _)) :-
+	imprecisoIntervalo(cuidado(D, U, P)),
+	retract(imprecisoIntervalo(cuidado(D, U, P))).
+removeImperfeito(cuidado(D, U, P, Desc, Custo)) :-
+	impreciso(cuidado(D, U, P)),
+	retract(excecao(cuidado(D, U, P, Desc, C2))),
+	removeImperfeito(cuidado(D, U, P)).
+removeImperfeito(cuidado(D, U, P, _, _)) :-
+	impreciso(cuidado(D, U, P)),
+	retract(impreciso(cuidado(D, U, P))).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado removeImperfeito: Consulta -> {V, F}
+% Remove conhecimento imperfeito relativamente a uma consulta
+removeImperfeito(consulta(U, P, HI, _)) :-
+	incerto(consulta(U, P, HI)),
+	retract(incerto(consulta(U, P, HI))).
+removeImperfeito(consulta(U, P, HI, _)) :-
+	imprecisoIntervalo(consulta(U, P, HI)),
+	retract(imprecisoIntervalo(consulta(U, P, HI))).
+removeImperfeito(consulta(U, P, HI, HF)) :-
+	impreciso(consulta(U, P, HI)),
+	retract(excecao(consulta(U, P, HI, HF2))),
+	removeImperfeito(consulta(U, P, HI)).
+removeImperfeito(consulta(U, P, HI, _)) :-
+	impreciso(consulta(U, P, HI)),
+	retract(impreciso(consulta(U, P, HI))).
+	
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado teste: Lista -> {V, F}	
@@ -129,12 +508,12 @@ sum([H|T], R) :- sum(T, L), R is H + L.
 
 data(D, M, A) :-
 	A >= 0,
-    pertence(M, [1,3,5,7,8,10,12]),
+    pertence(M, [1, 3, 5, 7, 8, 10, 12]),
 	D >= 1,
 	D =< 31.
 data(D, M, A) :-
 	A >= 0,
-    pertence(M, [4,6,9,11]),
+    pertence(M, [4, 6, 9, 11]),
 	D >= 1,
 	D =< 30.
 data(D, 2, A) :-
@@ -204,8 +583,12 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
 	depois(D3, D2),
 	nao_colide(D1, D2, T).
 
+	
+	
+	
+	
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
-% CONHECIMENTO NEGATIVO
+% NEGACAO FORTE
 
 -utente(Id, Nome, Idade, Morada) :-
     nao(utente(Id, Nome, Idade, Morada)),
@@ -219,28 +602,55 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
     nao(cuidado(Data, IdUtente, IdPrestador, Descricao, Custo)),
     nao(excecao(cuidado(Data, IdUtente, IdPrestador, Descricao, Custo))).
 
+-instituicao(Id, Nome, Localidade) :-
+	nao(instituicao(Id, Nome, Localidade)),
+	nao(excecao(instituicao(Id, Nome, Localidade))).
+	
+-consulta(Utente, Prestador, HI, HF) :-
+	nao(consulta(Utente, Prestador, HI, HF)),
+	nao(excecao(consulta(Utente, Prestador, HI, HF))).
+	
+	
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % INVARIANTES
 
 % Nao permitir a insercao de um utente que ja exista (mesmo id)
 % Id deve ser inteiro
 % Idade deve ser inteira e estar entre os valores [0, 125]
+% Nao permitir a insercao de conhecimento contraditorio
+% Nao permitir a alteracao de conhecimento interdito
 
-+utente(Id, _, Idade, _) :: (
++utente(Id, Nome, Idade, Morada) :: (
 	integer(Id),
 	integer(Idade),
 	Idade >= 0,
 	Idade =< 125,
-    solucoes(Id, utente(Id, _, _, _), S),
-    comprimento(S, N),
-    N == 1
+    solucoes(Id, utente(Id, _, _, _), S1),
+	solucoes(Id, -utente(Id, Nome, Idade, Morada), S2),
+	solucoes(M, (utente(Id, Nome, Idade, M), nulo(M)), S3),
+    comprimento(S1, 0),
+	comprimento(S2, N2),
+	comprimento(S3, 0),
+	N2 >= 0,
+	N2 =< 1
 ).
 
-+(-utente(Id, _, _, _)) :: (
-    solucoes(Id, utente(Id, _, _, _), S),
-    comprimento(S, N),
-    N == 0
+
+% Nao permitir a insercao de uma negacao forte que ja exista
+% Nao permitir a insercao de conhecimento contraditorio
+% Nao permitir a alteracao de conhecimento interdito
+
++(-utente(Id, Nome, Idade, Morada)) :: (
+    solucoes(Id, utente(Id, Nome, Idade, Morada), S1),
+	solucoes(Id, -utente(Id, Nome, Idade, Morada), S2),
+	solucoes(M, (utente(Id, N, I, M), nulo(M)), S3), 
+    comprimento(S1, 0),
+	comprimento(S2, N2),
+	comprimento(S3, 0),
+	N2 >= 0,
+	N2 =< 1
 ).
+
 
 % Nao permitir a remocao de utente enquando existirem cuidados prestados e consultas
 % associadas ao mesmo
@@ -248,23 +658,39 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
 -utente(IdUt, _, _, _) :: (
 	solucoes(IdUt, cuidado(_, IdUt, _, _, _), S1),
 	solucoes(IdUt, consulta(IdUt, _, _, _), S2),
-	comprimento(S1, N1),
-	comprimento(S2, N2),
-	N1 == 0, N2 == 0
+	comprimento(S1, 0),
+	comprimento(S2, 0)
 ).
 
-% Nao permitir a insercao de um utente que ja exista (mesmo id) ou cuja instituicao 
+
+% Nao permitir a insercao de um prestador que ja exista (mesmo id) ou cuja instituicao 
 % a que pertence nao exista
 % Id deve ser inteiro
+% Nao permitir a insercao de conhecimento contraditorio
 
-+prestador(Id, _, _, IdIns) :: (
++prestador(Id, Nome, Especialidade, IdIns) :: (
 	integer(Id),
     solucoes(Id, prestador(Id, _, _, _), S1),
 	solucoes(IdIns, instituicao(IdIns, _, _), S2),
-    comprimento(S1, N1),
+	solucoes(Id, -prestador(Id, Nome, Especialidade, IdIns), S3),
+    comprimento(S1, 0),
+	comprimento(S2, 1),
+	comprimento(S3, N3),
+	N3 >= 0, 
+	N3 =< 1
+).
+
+
+% Nao permitir a insercao de uma negacao forte que ja exista
+% Nao permitir a insercao de conhecimento contraditorio
+
++(-prestador(Id, Nome, Especialidade, IdIns)) :: (
+    solucoes(Id, prestador(Id, Nome, Especialidade, IdIns), S1),
+	solucoes(Id, -prestador(Id, Nome, Especialidade, IdIns), S2),
+    comprimento(S1, 0),
 	comprimento(S2, N2),
-    N1 == 1,
-	N2 == 1
+	N2 >= 0,
+	N2 =< 1
 ).
 
 
@@ -274,9 +700,8 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
 -prestador(IdPrest, _, _, _) :: (
 	solucoes(IdUt, cuidado(_, _, IdPrest, _, _), S1),
 	solucoes(IdPrest, consulta(_, IdPrest, _, _), S2),
-	comprimento(S1, N1),
-	comprimento(S2, N2),
-	N1 == 0, N2 == 0
+	comprimento(S1, 0),
+	comprimento(S2, 0)
 ).
 
 
@@ -284,6 +709,7 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
 % utente e a um prestador que nao existam
 % O valor do primeiro argumento deve ser uma data
 % O custo deve ser do tipo number e ser maior ou igual a zero
+% Nao permitir a insercao de conhecimento contraditorio
 
 +cuidado(Data, IdUt, IdPrest, Descr, Custo) :: (
 	number(Custo), Custo >= 0, data(Data),
@@ -292,10 +718,37 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
     solucoes((Data, IdUt, IdPrest, Descricao, Custo),
              cuidado(Data, IdUt, IdPrest, Descricao, Custo),
              S3),
-    comprimento(S1, N1),
+	solucoes((Data, IdUt, IdPrest, Descricao, Custo),
+		     -cuidado(Data, IdUt, IdPrest, Descricao, Custo),
+			 S4),
+	solucoes(M, (cuidado(Data, IdUt, IdPrest, M, Custo), nulo(M)), S5),
+    comprimento(S1, 1),
+    comprimento(S2, 1),
+    comprimento(S3, 0),
+	comprimento(S4, N4),
+	comprimento(S5, 0),
+	N4 >= 0,
+	N4 =< 1
+).
+
+
+% Nao permitir a insercao de uma negacao forte que ja exista
+% Nao permitir a insercao de conhecimento contraditorio
+% Nao permitir a alteracao de conhecimento interdito
+
++(-cuidado(Data, IdUt, IdPrest, Descr, Custo)) :: (
+    solucoes((Data, IdUt, IdPrest, Descricao, Custo),
+             cuidado(Data, IdUt, IdPrest, Descricao, Custo),
+             S1),
+	solucoes((Data, IdUt, IdPrest, Descricao, Custo),
+		     -cuidado(Data, IdUt, IdPrest, Descricao, Custo),
+			 S2),
+	solucoes(M, (cuidado(Data, IdUt, IdPrest, M, Custo), nulo(M)), S3),
+    comprimento(S1, 0),
     comprimento(S2, N2),
-    comprimento(S3, N3),
-    N1 == 1, N2 == 1, N3 == 1
+    comprimento(S3, 0),
+	N2 >= 0,
+	N2 =< 1
 ).
 
 
@@ -305,28 +758,45 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
     solucoes((Data, IdUt, IdPrest, Descricao, Custo),
              cuidado(Data, IdUt, IdPrest, Descricao, Custo),
              S),
-    comprimento(S, N),
-    N == 0
+    comprimento(S, 1)
 ).
 
 
 % Nao permitir a insercao de um instituicao que ja exista
 % Id deve ser inteiro
+% Nao permitir a insercao de conhecimento contraditorio
 
-+instituicao(Id, _, _) :: (
++instituicao(Id, Nome, Localidade) :: (
 	integer(Id),
-	solucoes(Id, instituicao(Id, _, _), S),
-	comprimento(S, N),
-	N == 1
+	solucoes(Id, instituicao(Id, _, _), S1),
+	solucoes(Id, -instituicao(Id, Nome, Localidade), S2),
+	comprimento(S1, 0),
+	comprimento(S2, N2),
+	N2 >= 0,
+	N2 =< 1
 ).
 
 
-% Remocao de uma instituicao
+% Nao permitir a insercao de uma negacao forte que ja exista
+% Nao permitir a insercao de conhecimento contraditorio
+
++(-instituicao(Id, Nome, Localidade)) :: (
+	solucoes(Id, instituicao(Id, Nome, Localidade), S1),
+	solucoes(Id, -instituicao(Id, Nome, Localidade), S2),
+	comprimento(S1, 0),
+	comprimento(S2, N2),
+	N2 >= 0,
+	N2 =< 1
+).
+
+
+% Nao permitir a remocao de uma instituicao que tenha prestadores registados
 
 -instituicao(Id, _, _) :: (
-	solucoes(Id, prestador(_, _, _, Id), S),
-	comprimento(S, N),
-	N == 0
+	solucoes(Id, prestador(_, _, _, Id), S1),
+	solucoes(Id, instituicao(Id, _, _), S2),
+	comprimento(S1, 0),
+	comprimento(S2, 1)
 ).
 
 
@@ -335,31 +805,54 @@ nao_colide(D1, D2, [(D3, D4)|T]) :-
 % O terceiro e o quarto argumentos devem ser horas
 % Nao permitir a insercao de uma consulta que colida com o horario de consultas já
 % marcadas com um prestador
+% Nao permitir a insercao de conhecimento contraditorio
 
 +consulta(IdU, IdP, HI, HF) :: (
 	data_hora(HI), data_hora(HF),
 	solucoes(IdU, utente(IdU, _, _, _), S1),
 	solucoes(IdP, prestador(IdP, _, _, _), S2),
 	solucoes((IdU, IdP, HI, HF), consulta(IdU, IdP, HI, HF), S3),
-	solucoes((IdU1, IdP, HI1, HF1), consulta(IdU1, IdP, HI1, HF1), S4),
-	comprimento(S1, N1),
-	comprimento(S2, N2),
-	comprimento(S3, N3),
-	N1 == 1, N2 == 1, N3 == 1,
-	remove_consulta(S4, (IdU, IdP, HI, HF), L),
-	nao_colide(HI, HF, L)
+	solucoes((HI1, HF1), consulta(IdU1, IdP, HI1, HF1), S4),
+	solucoes((IdU, IdP, HI, HF), -consulta(IdU, IdP, HI, HF), S5),
+	comprimento(S1, 1),
+	comprimento(S2, 1),
+	comprimento(S3, 0),
+	comprimento(S5, N5),
+	nao_colide(HI, HF, S4),
+	N5 >= 0,
+	N5 =< 1
 ).
 	
 
+% Nao permitir a insercao de uma negacao forte que ja exista
+% Nao permitir a insercao de conhecimento contraditorio
+	
++(-consulta(IdU, IdP, HI, HF)) :: (
+	solucoes((IdU, IdP, HI, HF), consulta(IdU, IdP, HI, HF), S1),
+	solucoes((IdU, IdP, HI, HF), -consulta(IdU, IdP, HI, HF), S2),
+	comprimento(S1, 0),
+	comprimento(S2, N2),
+	N2 >= 0,
+	N2 =< 1
+).
+	
+	
 % Remocao de uma consulta
 	
 -consulta(IdU, IdP, HI, HF) :: (
 	solucoes((IdU, IdP, HI, HF), consulta(IdU, IdP, HI, HF), S),
-    comprimento(S, N),
-    N == 0
+    comprimento(S, 1)
 ).
 	
 
+	
+	
+	
+	
+	
+	
+% CONSULTAS %
+	
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado procura_utentes: Id, Nome, Idade, Morada, Lista -> {V, F}
 % Procura utentes por criterios de selecao (Id, Nome, Idade ou Morada)
@@ -463,17 +956,8 @@ procura_consultas(data(D, M, A), L) :-
 	solucoes((IdU, IdP, data_hora(D, M, A, H1, M1), data_hora(D, M, A, H2, M2)),
 		consulta(IdU, IdP, data_hora(D, M, A, H1, M1), data_hora(D, M, A, H2, M2)),
 		L).
-
-%--------------------------------- - - - - - - - - - -  -  -  -  -   -
-% Extensao do predicado remove_consulta: Lista, Consulta, Resultado -> {V, F}	
-% Retira de uma lista de consultas aquela que faca match com o segundo argumento
-% O resultado apenas guarda as datas de inicio e de fim das consultas
+		
 	
-remove_consulta([], _, []).
-remove_consulta([(U, P, I, F)|T], (U, P, I, F), L) :-
-	remove_consulta(T, (U, P, I, F), L).
-remove_consulta([(U1, P1, I1, F1)|T], (U2, P2, I2, F2), [(I1, F1)|L]) :- 
-	remove_consulta(T, (U2, P2, I2, F2), L).
 	
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
@@ -490,7 +974,53 @@ utente( 7, 'Rafaela',   23, 'Rua da Poeira').
 utente( 8, 'Anabela',   42, 'Rua de Baixo').
 utente( 9, 'Antonio',   57, 'Rua do Forno').
 utente(10, 'Zueiro',    33, 'Rua do Mar').
+utente(11, inc01, 49, 'Rua do Forno'). 
+utente(50, 'Costa', 67, int01).
 
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado excecao: Utente -> {V, F}	
+
+excecao(utente(13, 'Zulmira', Idade, 'Rua da Mina')) :-
+	Idade >= 25,
+	Idade =< 30.
+excecao(utente(13, 'Zulma', Idade, 'Rua da Mina')) :-
+	Idade >= 25,
+	Idade =< 30.
+	
+	
+excecao(utente(Id, Nome, Idade, Morada)) :- 
+	utente(Id, inc01, Idade, Morada).
+
+excecao(utente(24, 'Zueiro', 46, 'Rua de tras')).
+excecao(utente(24, 'Zueiro', 46, 'Curral de Moinas')).	
+excecao(utente(Id, Nome, Idade, Morada)) :-
+	utente(Id, Nome, Idade, int01).
+
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado incerto: Utente -> {V, F}	
+
+incerto(utente(11)).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imprecisoIntervalo: Utente -> {V, F}	
+
+imprecisoIntervalo(utente(13)).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado impreciso: Utente -> {V, F}	
+
+impreciso(utente(24)).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado nulo: Valor -> {V, F}	
+
+nulo(int01).
+	
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
 % Extensao do predicado prestador: Id, Nome, Especialidade, Instituicao -> {V, F}	
@@ -506,6 +1036,39 @@ prestador( 7, 'Sara',     'Oftalmologia', 4).
 prestador( 8, 'Sandra',   'Radiografia',  3).
 prestador( 9, 'Ruben',    'Fisioterapia', 2).
 prestador(10, 'Luisa',    'Dermatologia', 1).
+prestador(11, 'Jonas',    'Cardiologia', inc01).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado excecao: Prestador -> {V, F}	
+
+excecao(prestador(Id, Nome, Especialidade, Instituicao)) :-
+	prestador(Id, Nome, Especialidade, inc01).
+
+excecao(prestador(12, 'Luis', 'Oncologia', 3)).
+excecao(prestador(12, 'Luis', 'Dermatologia', 3)).
+excecao(prestador(12, 'Luis', 'Cardiologia', 3)).
+	
+excecao(prestador(13, 'Catia', 'Radiografia', I)) :-
+	pertence(I, [1, 2, 3, 4]).
+
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado incerto: Prestador -> {V, F}	
+
+incerto(prestador(11)).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado impreciso: Prestador -> {V, F}	
+
+impreciso(prestador(12)).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imprecisoIntervalo: Prestador -> {V, F}	
+
+imprecisoIntervalo(prestador(13)).
 
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
@@ -540,6 +1103,24 @@ cuidado(data(20, 12, 2017), 9, 3, 'Consulta Ortopedia', 97.99).
 cuidado(data(4, 11, 2017), 9, 3, 'Consulta Ortopedia', 39.99).
 cuidado(data(3, 12, 2017), 10, 0, 'Consulta de Exames', 9.99).
 cuidado(data(23, 11, 2017), 10, 1, 'Consulta de Exames', 5.99).
+cuidado(data(24, 4, 2018), 2, 3, int01, 49.99).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado excecao: Cuidado -> {V, F}	
+
+excecao(cuidado(data(27, 3, 2018), 10, 0, 'Consulta Cardiologia', P)) :-
+	P >= 10,
+	P =< 50.
+
+excecao(cuidado(Data, Utente, Prestador, Desc, Custo)) :-
+	cuidado(Data, Utente, Prestador, int01, Custo).
+
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado imprecisoIntervalo: Cuidado -> {V, F}	
+
+imprecisoIntervalo(cuidado(data(27, 3, 2018), 10, 0)).	
 
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
@@ -549,6 +1130,30 @@ instituicao(1, 'Hospital de Braga', 'Braga').
 instituicao(2, 'Hospital de Guimaraes', 'Guimaraes').
 instituicao(3, 'Hospital do Porto', 'Porto').
 instituicao(4, 'Hospital de Lisboa', 'Lisboa').
+instituicao(5, inc01, 'Setubal').
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado excecao: Instituicao -> {V, F}	
+
+excecao(instituicao(Id, Nome, Localidade)) :-
+	instituicao(Id, inc01, Localidade).
+
+excecao(instituicao(6, 'Curral de Moinas Hospital', 'Curral de Moinas')).
+excecao(instituicao(6, 'Curral de Moinas Hospital', 'Moinas do Curral')).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado incerto: Instituicao -> {V, F}	
+
+incerto(instituicao(5)).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado impreciso: Instituicao -> {V, F}	
+
+impreciso(instituicao(6)).
+
 
 
 %--------------------------------- - - - - - - - - - -  -  -  -  -   -
@@ -595,3 +1200,29 @@ consulta(1, 6, data_hora(25, 1, 2018, 15, 0), data_hora(25, 1, 2018, 15, 30)).
 consulta(2, 6, data_hora(25, 1, 2018, 15, 40), data_hora(25, 1, 2018, 16, 10)).
 consulta(3, 6, data_hora(25, 1, 2018, 16, 20), data_hora(25, 1, 2018, 16, 50)).
 consulta(4, 6, data_hora(25, 1, 2018, 17, 20), data_hora(25, 1, 2018, 18, 0)).
+
+consulta(5, 7, data_hora(27, 1, 2018, 16, 40), inc01).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado excecao: Consulta -> {V, F}	
+
+excecao(consulta(Utente, Prestador, HI, HF)) :-
+	consulta(Utente, Prestador, HI, inc01).
+
+excecao(consulta(6, 8, data_hora(26, 3, 2018, 13, 0), 
+	data_hora(26, 3, 2018, 14, 50))).
+excecao(consulta(6, 8, data_hora(26, 3, 2018, 13, 0), 
+	data_hora(26, 3, 2018, 14, 30))).
+	
+	
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado incerto: Consulta -> {V, F}	
+
+incerto(consulta(5, 7, data_hora(27, 1, 2018, 16, 40))).
+
+
+%--------------------------------- - - - - - - - - - -  -  -  -  -   -
+% Extensao do predicado impreciso: Consulta -> {V, F}	
+
+impreciso(consulta(6, 8, data_hora(26, 3, 2018, 13, 0))).
