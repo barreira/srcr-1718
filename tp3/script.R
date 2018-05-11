@@ -5,10 +5,7 @@ library(leaps)
 library(arules)
 
 # ir buscar dados
-dados <- read.csv("C:\\Users\\João Pires Barreira\\Documents\\GitHub\\srcr-1718\\tp3\\dataset\\bank.csv", sep=";")
-
-# mostrar a cabeca dos dados
-head(dados)
+dados <- read.csv("D:\\SRCR\\projeto\\srcr-1718\\tp3\\dataset\\bank-full.csv", sep=";")
 
 if (FALSE) {
   dados$age == 50
@@ -46,25 +43,22 @@ dados$contact <- match(dados$contact, contacts)
 dados$month <- match(dados$month, months)
 dados$poutcome <- match(dados$poutcome, outcomes)
 dados$y <- match(dados$y, booleans) - 1
+dados$duration <- dados$duration / 5000
+dados$pdays <- (dados$pdays + 1) / 500
+dados$poutcome <- dados$poutcome / 4
 
-max(dados$balance)
-min(dados$balance)
+selecao <- regsubsets(y ~ age+job+marital+education+default+balance+housing+loan+contact+day+month+duration+campaign+pdays+previous+poutcome, dados, method="backward")
 
-# balance <- discretize(dados$balance, method="cluster", categories=20, labels=seq(1,20))
-# dados$balance <- as.numeric(balance)
+funcao <- y ~ housing+duration+poutcome
 
-funcao <- y ~ default+balance+housing+loan
+treino <- dados[1:50, ]
+teste <- dados[51:45211, ]
 
-treino <- dados[1:2300, ]
-teste <- dados[2301:4521, ]
+testeargs <- subset(teste, select=c("housing","duration","poutcome"))
 
-testeargs <- subset(teste, select=c("default","balance","housing","loan"))
+rede <- neuralnet(funcao, treino, hidden=c(3,2), lifesign="full", linear.output=FALSE, threshold=0.01)
 
-dados
-
-rede <- neuralnet(funcao, treino, hidden=c(8,4), lifesign="full", linear.output=FALSE, threshold=0.1)
-
-# plot(rede, rep="best")
+plot(rede, rep="best")
 
 rede.resultados <- compute(rede, testeargs)
 
@@ -74,3 +68,36 @@ resultados$previsao <- round(resultados$previsao, digits=0)
 
 rmse(c(teste$y), c(resultados$previsao))
 
+
+
+
+
+
+
+
+# nova rede 
+
+dados2 <- data.frame(default=dados$default, loan=dados$loan, housing=dados$housing, balance=dados$balance, y=numeric(nrow(dados)))
+dados2$y <- dados$default == 0 & dados$loan == 0 & dados$housing == 0 & dados$balance > 0
+dados2$y <- as.integer(as.logical(dados2$y))
+
+selecao2 <- regsubsets(y ~ default+loan+housing+balance, dados2, method="backward")
+
+funcao2 <- y ~ default+loan+housing+balance
+
+treino2 <- dados2[1:25000, ]
+teste2 <- dados2[25001:45211, ]
+
+testeargs2 <- subset(teste2, select=c("default","loan","housing","balance"))
+
+rede2 <- neuralnet(funcao2, treino2, hidden=c(3,2), lifesign="full", linear.output=FALSE, threshold=0.01)
+
+plot(rede2, rep="best")
+
+rede.resultados2 <- compute(rede2, testeargs2)
+
+resultados2 <- data.frame(atual = teste2$y, previsao = rede.resultados2$net.result)
+
+resultados2$previsao <- round(resultados2$previsao, digits=0)
+
+rmse(c(teste2$y), c(resultados2$previsao))
