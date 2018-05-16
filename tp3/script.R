@@ -7,6 +7,8 @@ library(arules)
 # ir buscar dados
 dados <- read.csv("D:\\SRCR\\projeto\\srcr-1718\\tp3\\dataset\\bank-full.csv", sep=";")
 
+normalize <- function(x) { (x - min(x)) / (max(x) - min(x))}
+
 if (FALSE) {
   dados$age == 50
   
@@ -33,43 +35,57 @@ outcomes <- c("unknown","other","failure","success")
 months <- c("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec")
 booleans <- c("no", "yes")
 
-dados$job <- match(dados$job, jobs)
-dados$marital <- match(dados$marital, maritals)
-dados$education <- match(dados$education, educations)
+dados$job <- normalize(match(dados$job, jobs))
+dados$marital <- normalize(match(dados$marital, maritals))
+dados$education <- normalize(match(dados$education, educations))
 dados$default <- match(dados$default, booleans) - 1
 dados$housing <- match(dados$housing, booleans) - 1
 dados$loan <- match(dados$loan, booleans) - 1
-dados$contact <- match(dados$contact, contacts)
-dados$month <- match(dados$month, months)
-dados$poutcome <- match(dados$poutcome, outcomes)
+dados$contact <- normalize(match(dados$contact, contacts))
+dados$month <- normalize(match(dados$month, months))
+dados$poutcome <- normalize(match(dados$poutcome, outcomes))
 dados$y <- match(dados$y, booleans) - 1
-dados$duration <- dados$duration / 5000
-dados$pdays <- (dados$pdays + 1) / 500
-dados$poutcome <- dados$poutcome / 4
+dados$duration <- normalize(dados$duration)
+dados$pdays <- normalize(dados$pdays)
+dados$poutcome <- normalize(dados$poutcome)
+dados$balance <- normalize(dados$balance)
 
 selecao <- regsubsets(y ~ age+job+marital+education+default+balance+housing+loan+contact+day+month+duration+campaign+pdays+previous+poutcome, dados, method="backward")
+summary(selecao)
 
-funcao <- y ~ housing+duration+poutcome
+funcao1 <- y ~ duration
+funcao2 <- y ~ duration+poutcome
+funcao3 <- y ~ housing+duration+poutcome
+funcao4 <- y ~ housing+duration+pdays+poutcome
+funcao5 <- y ~ housing+contact+duration+pdays+poutcome
+funcao6 <- y ~ housing+loan+contact+duration+pdays+poutcome
+funcao7 <- y ~ marital+housing+loan+contact+duration+pdays+poutcome
+funcao8 <- y ~ marital+balance+housing+loan+contact+duration+pdays+poutcome
 
-treino <- dados[1:50, ]
-teste <- dados[51:45211, ]
+treino <- dados[1:4521, ]
+teste <- dados[4522:45211, ]
 
-testeargs <- subset(teste, select=c("housing","duration","poutcome"))
+testeargs1 <- subset(teste, select=c("duration"))
+testeargs2 <- subset(teste, select=c("duration","poutcome"))
+testeargs3 <- subset(teste, select=c("housing","duration","poutcome"))
+testeargs4 <- subset(teste, select=c("housing","duration","pdays","poutcome"))
+testeargs5 <- subset(teste, select=c("housing","contact","duration","pdays","poutcome"))
+testeargs6 <- subset(teste, select=c("housing","loan","contact","duration","pdays","poutcome"))
+testeargs7 <- subset(teste, select=c("marital","housing","loan","contact","duration","pdays","poutcome"))
+testeargs8 <- subset(teste, select=c("marital","balance","housing","loan","contact","duration","pdays","poutcome"))
 
-rede <- neuralnet(funcao, treino, hidden=c(3,2), lifesign="full", linear.output=FALSE, threshold=0.01)
+
+rede <- neuralnet(funcao1, treino, hidden=c(3,2), lifesign="full", linear.output=FALSE, threshold=0.01)
 
 plot(rede, rep="best")
 
-rede.resultados <- compute(rede, testeargs)
+rede.resultados <- compute(rede, testeargs1)
 
 resultados <- data.frame(atual = teste$y, previsao = rede.resultados$net.result)
 
 resultados$previsao <- round(resultados$previsao, digits=0)
 
 rmse(c(teste$y), c(resultados$previsao))
-
-
-
 
 
 
