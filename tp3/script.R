@@ -75,11 +75,11 @@ testeargs7 <- subset(teste, select=c("marital","housing","loan","contact","durat
 testeargs8 <- subset(teste, select=c("marital","balance","housing","loan","contact","duration","pdays","poutcome"))
 
 
-rede <- neuralnet(funcao1, treino, hidden=c(3,2), lifesign="full", linear.output=FALSE, threshold=0.01)
+rede <- neuralnet(funcao8, treino, hidden=c(3,2), lifesign="full", linear.output=FALSE, threshold=0.01)
 
 plot(rede, rep="best")
 
-rede.resultados <- compute(rede, testeargs1)
+rede.resultados <- compute(rede, testeargs8)
 
 resultados <- data.frame(atual = teste$y, previsao = rede.resultados$net.result)
 
