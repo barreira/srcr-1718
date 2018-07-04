@@ -1,5 +1,5 @@
 # SRCR
-[//]: # "### Nota final do trabalho: XX em 20."
+### Nota final do trabalho: 19 em 20.
 
 Trabalho prático da U.C. de Representação de Sistemas de Conhecimento e Raciocínio (2017/2018)
 
